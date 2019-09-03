@@ -79,7 +79,7 @@ def sobel_filters(img):
     return (G, theta)
 
 
-def detect_spot_circle(src_img, save_img=False):
+def detect_spot_circle(src_img, save_img_path=False):
     # color to gray
     grey_img = cv2.cvtColor(src_img, cv2.COLOR_BGR2GRAY)
     grey_img = cv2.medianBlur(grey_img, 5)
@@ -87,7 +87,7 @@ def detect_spot_circle(src_img, save_img=False):
     approx_gap = grey_img.shape[0] / 10
     # fix contract
     grey_img = adjust_gamma(grey_img, gamma=0.4)
-    circles = cv2.HoughCircles(
+    circles_arr = cv2.HoughCircles(
         grey_img,
         cv2.HOUGH_GRADIENT,
         1,
@@ -97,20 +97,23 @@ def detect_spot_circle(src_img, save_img=False):
         minRadius=int(approx_gap / 2),
         maxRadius=int(1.2 * approx_gap),
     )
-    print("#######", len(circles[0]), "spots detected!")
+    print("#######", len(circles_arr[0]), "spots detected! ######")
 
-    circles = [
-        sorted(
-            circles[0],
-            key=lambda x: (int(x[1] * 4 / src_img.shape[0]), x[0]),
-            reverse=False,
+    circles_dict = dict(
+        enumerate(
+            sorted(
+                circles_arr[0],
+                key=lambda x: (int(x[1] * 4 / src_img.shape[0]), x[0]),
+                reverse=False,
+            ),
+            1,
         )
-    ]
+    )
 
-    if save_img:
+    if save_img_path:
         #  out_img = grey_img
         out_img = src_img.copy()
-        for i, c in enumerate(circles[0], 1):
+        for i, c in circles_dict.items():
             c = c.astype(int)
             x, y, r = c
             # draw cirlce in crop img
@@ -128,11 +131,11 @@ def detect_spot_circle(src_img, save_img=False):
                 cv2.LINE_AA,
             )
 
-        cv2.imwrite("highlight_spots.png", out_img)
-    return circles
+        cv2.imwrite(save_img_path, out_img)
+    return circles_dict
 
 
-def count_spot_colonies(circle, save_img=False):
+def count_spot_colonies(circle, save_img_path=False):
     circle = circle.astype(int)
     x, y, r = circle
     # adjust circle
@@ -242,7 +245,7 @@ def count_spot_colonies(circle, save_img=False):
                         20,
                     )
                 #  for testing and debug
-                #  if save_img == "color_25.png":
+                #  if save_img_path == "color_25.png":
                 #  print("#######", w / h, color)
 
         # compute the Convex Hull of the contour
@@ -263,7 +266,7 @@ def count_spot_colonies(circle, save_img=False):
         )
     )
 
-    cv2.imwrite(save_img, out_img)
+    cv2.imwrite(save_img_path, out_img)
     #  cv2.imshow("detected circles", mask)
     #  cv2.waitKey(0)
     return colony_num
@@ -271,14 +274,16 @@ def count_spot_colonies(circle, save_img=False):
 
 if __name__ == "__main__":
     # Loads an image
-    #  src_img = cv2.imread("CDA_hsAID_8x5.png", cv2.IMREAD_COLOR)
-    #  src_img = cv2.imread("a1-2.jpg", cv2.IMREAD_COLOR)
     src_img = cv2.imread(
         "../cda_enzyme_screen/hsAID_gWT.png", cv2.IMREAD_COLOR
     )
     # detect spot
-    circles = detect_spot_circle(src_img, save_img="./highlight_spots.png")
+    circles_dict = detect_spot_circle(
+        src_img, save_img_path="./test/highlight_spots.png"
+    )
     # count spot colony
-    for index, c in enumerate(circles[0], 1):
-        colony_num = count_spot_colonies(c, save_img=f"color_{index}.png")
-        print(index, colony_num)
+    for index, c in circles_dict.items():
+        colony_num = count_spot_colonies(
+            c, save_img_path=f"./test/spot{index}.png"
+        )
+        print(f"The {index}th spot contains {colony_num} colonies!")
